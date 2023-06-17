@@ -1,3 +1,11 @@
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+
+
+
+'''
+glados model setup
+'''
 import torch
 from utils.tools import prepare_text
 from scipy.io.wavfile import write
@@ -29,15 +37,25 @@ for i in range(2):
     init = glados.generate_jit(prepare_text(str(i)))
     init_mel = init['mel_post'].to(device)
     init_vo = vocoder(init_mel)
+'''
+end of glados model setup
+'''
 
-while(1):
-    text = input("Input: ")
 
+
+glados_tta_api = FastAPI()
+audio_output_file = "output.wav"
+@glados_tta_api.get("/")
+async def root():
+    return {"message":"Hello World"}
+
+
+@glados_tta_api.get("/glados/{text}")
+async def generate_glados_speech(text):
     # Tokenize, clean and phonemize input text
     x = prepare_text(text).to('cpu')
 
     with torch.no_grad():
-
         # Generate generic TTS-output
         old_time = time.time()
         tts_output = glados.generate_jit(x)
@@ -53,17 +71,13 @@ while(1):
         audio = audio.squeeze()
         audio = audio * 32768.0
         audio = audio.cpu().numpy().astype('int16')
-        output_file = ('output.wav')
+        output_file = (audio_output_file)
 
         # Write audio file to disk
         # 22,05 kHz sample rate
         write(output_file, 22050, audio)
 
         # Play audio file
-        if 'winsound' in mod:
-            winsound.PlaySound(output_file, winsound.SND_FILENAME)
-        else:
-            try:
-                call(["aplay", "./output.wav"])
-            except FileNotFoundError:
-                call(["pw-play", "./output.wav"])
+    return FileResponse(audio_output_file)
+
+
